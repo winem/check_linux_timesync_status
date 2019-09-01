@@ -29,7 +29,7 @@ def main(args):
             resultToIcinga(sources_monitoring)
 
     elif args.daemon == 'systemd-timesyncd':
-        if args.resource == 'leap_status'
+        if args.resource == 'leap_status':
             timesyncd_monitoring = timedatectlStatus()
 
             resultToIcinga(timesyncd_monitoring)
@@ -89,7 +89,7 @@ def chronycSources(chk_resource):
             elif s_status in ('~'):
                 c_sources_unreliable += 1
 
-    if chk_resoruce == 'falseticker':
+    if chk_resource == 'falseticker':
 
         if falseticker_cnt == 0:
             falseticker_status  = 0
@@ -184,7 +184,7 @@ def chronycTracking():
     tracking_out['perfd']['leap_status']['crit']            = 2
 
     tracking_out['perfd']['max_estimated_error']            = {}
-    tracking_out['perfd']['max_estimated_error']['value']   = root_deviation
+    tracking_out['perfd']['max_estimated_error']['value']   = max_estimated_error
 
     return tracking_out
 
