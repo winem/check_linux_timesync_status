@@ -12,29 +12,31 @@ import sys
 def main(args):
     os_family           = platform.linux_distribution()[0]
 
-    if args.chk_resource.lower() == 'leap_status':
-        if os_family.startswith('Ubuntu'):
-            timesyncd_monitoring    = timedatectlStatus()
-
-            resultToIcinga(timesyncd_monitoring)
-        elif os_family.startswith('Red Hat') or os_family.startswith('CentOS'):
+    if args.daemon == 'chronyc':
+        if args.resource == 'leap_status':
             chronyc_monitoring     = chronycTracking()
 
             resultToIcinga(chronyc_monitoring)
+
+        elif args.resource == 'sources':
+            sources_monitoring = chronycSources('sources')
+
+            resultToIcinga(sources_monitoring)
+
+        elif args.resource == 'falseticker':
+            sources_monitoring = chronycSources('falseticker')
+
+            resultToIcinga(sources_monitoring)
+
+    elif args.daemon == 'systemd-timesyncd':
+        if args.resource == 'leap_status'
+            timesyncd_monitoring = timedatectlStatus()
+
+            resultToIcinga(timesyncd_monitoring)
+
         else:
-            print('Unsupported operating system.')
+            print('Unsupported systemd-timesyncd resource. Supported resources: leap_status')
             sys.exit(3)
-    elif args.chk_resource.lower() == 'sources':
-        sources_monitoring = chronycSources('sources')
-
-        resultToIcinga(sources_monitoring)
-    elif args.chk_resource.lower() == 'falseticker':
-        sources_monitoring = chronycSources('falseticker')
-
-        resultToIcinga(sources_monitoring)
-    else:
-        print('Unsupported resource to check.')
-        sys.exit(3)
 
 
 def chronycMonitor(chronyc_command):
@@ -293,8 +295,8 @@ def parseArgs():
     argParser = argparse.ArgumentParser(description='Check the chronyc or systemd-timesyncd sync status.')
     argParser.add_argument('-d', '--daemon', dest='daemon', required=True, type=str, \
                             choices=[ 'chronyc', 'systemd-timesyncd' ], \
-                            help='Monitored deamon.')
-    argParser.add_argument('-r', '--resource', dest='chk_resource', type=str, default='leap_status', \
+                            help='Monitored daemon.')
+    argParser.add_argument('-r', '--resource', dest='resource', type=str, default='leap_status', \
                             choices=[ 'leap_status', 'sources', 'falseticker' ], \
                             help='Checked resource. \
                                   Supported options for chronyc: leap_status, sources, falseticker. \
