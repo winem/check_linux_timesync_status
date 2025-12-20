@@ -2,11 +2,20 @@
 Nagios and Icinga2 plugin to check status of the local timesync client. Currently supported timesync clients are systemd-timesyncd and chronyc.
 
 ## Dependencies
-This plugin requires:
-  - one of the following running timesync-clients:
-    - chronyc
-    - systemd-timesyncd
-  - Python3
+These are the requirements to run this plugin:
+  - Environment:
+    - one of the following running timesync-clients:
+        - chronyc
+          - systemd-timesyncd
+  - Python interpreter:
+    - Python3.10 or newer (tested up to 3.13)
+  - Python packages:
+    - `distro`
+
+The Python packages that are not part of the Python standard library can be installed  can be installed via pip3:
+```
+pip3 install -r requirements.txt
+```
 
 ## Notes
   - `timedatectl` provides less details and insights regarding the configured sources, their state and the dispersion and delay for example. Therefore there are less metrics available for `systemd-timesyncd`.
