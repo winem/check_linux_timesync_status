@@ -2,15 +2,14 @@
 
 import argparse
 import csv
+import distro
 import io
 import os
-import platform
-import socket
 import subprocess
 import sys
 
 def main(args):
-    os_family           = platform.linux_distribution()[0]
+    os_family           = distro.id()
 
     if args.daemon == 'chronyc':
         if args.resource == 'leap_status':
@@ -164,9 +163,7 @@ def chronycTracking():
     root_delay              = chronyc_status[0][10]
     root_dispersion         = chronyc_status[0][11]
     max_estimated_error     = float(system_time) + float(root_dispersion) / 2 + float(root_dispersion)
-    tracking_out            = {}
-    tracking_out['service'] = {}
-    tracking_out['perfd']   = {}
+    tracking_out            = {'service': {}, 'perfd': {}}
     tracking_msg            = 'System clock is not in sync'
     tracking_status         = 2
 
@@ -191,9 +188,7 @@ def chronycTracking():
 
 def timedatectlStatus():
     tdctl_stdout            = subprocess.Popen(['timedatectl', 'status'], stdout=subprocess.PIPE)
-    tdctl_out               = {}
-    tdctl_out['service']    = {}
-    tdctl_out['perfd']      = {}
+    tdctl_out               = {'service': {}, 'perfd': {}}
     tdctl_msg               = 'System clock is not in sync.'
     tdctl_status            = 2
 
