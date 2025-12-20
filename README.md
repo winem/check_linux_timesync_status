@@ -99,3 +99,7 @@ Check chronyc sources with 4 configured sources:
 ./check_linux_timesync_status  -d chronyc -r sources
 NTP SOURCES STATUS OK - 4 out of 4 sources are available; 1 synchronized source | available_sources=4;0;4;2;0 synchronized_sources=1;0;4;; unavailable_sources=0;0;4;2;3 unreliable_sources=0;0;4;; configured_sources=4;0;4;;
 ```
+
+## Development
+Developers may use `pyenv` with their own `.python-version` file to create a virtual environment for development, testing and switching between Python versions easily.
+Note that the `.python-version` file is ignored by git (via `.gitignore`) to avoid conflicts between different developers and users of this repository.
