@@ -5,13 +5,33 @@ import csv
 import distro
 import io
 import os
+import shutil
 import subprocess
 import sys
 
-def main(args):
-    os_family           = distro.id()
+CLIENT_COMMAND = {
+    'chronyc': 'chronyc',
+    'systemd-timesyncd': 'timedatectl'
+}
 
-    if args.daemon == 'chronyc':
+
+def main(args):
+    os_family                   = distro.id()
+    invalid_input_result_prefix = 'TIMESYNC STATUS UNKNOWN'
+
+    if args.daemon:
+        if not checkCommandAvailability(CLIENT_COMMAND['chronyc']):
+            print(f'{invalid_input_result_prefix} - chronyc command not found.')
+            sys.exit(3)
+        daemon = args.daemon
+    else:
+        daemon = detectTimesyncDaemon()
+
+    if detectTimesyncDaemon() == 'UNKNOWN':
+        print(f'{invalid_input_result_prefix} - Unable to detect time synchronization daemon. Please specify it via the --daemon option.')
+        sys.exit(3)
+
+    if daemon == 'chronyc':
         if args.resource == 'leap_status':
             chronyc_monitoring     = chronycTracking()
 
@@ -27,15 +47,24 @@ def main(args):
 
             resultToIcinga(sources_monitoring)
 
-    elif args.daemon == 'systemd-timesyncd':
+    elif daemon == 'systemd-timesyncd':
         if args.resource == 'leap_status':
             timesyncd_monitoring = timedatectlStatus()
 
             resultToIcinga(timesyncd_monitoring)
 
         else:
-            print('Unsupported systemd-timesyncd resource. Supported resources: leap_status')
+            print(f'{invalid_input_result_prefix} - Unsupported systemd-timesyncd resource. Supported resources: leap_status')
             sys.exit(3)
+
+    elif daemon == 'UNKNOWN':
+        print(f'{invalid_input_result_prefix} - Unable to detect time synchronization daemon. Please specify it via the --daemon option.')
+        sys.exit(3)
+
+
+def checkCommandAvailability(command):
+    """Return True if `command` is available on the system PATH, otherwise False."""
+    return shutil.which(command) is not None
 
 
 def chronycMonitor(chronyc_command):
@@ -186,6 +215,25 @@ def chronycTracking():
     return tracking_out
 
 
+def detectTimesyncDaemon():
+    """
+    Detect which time synchronization client based on available commands.
+
+    Supported clients in order of precedence. The first one found will be returned:
+    - chronyc
+    - systemd-timesyncd (will be used as fallback if `timedatectl` command is available)
+
+    Returns:
+        str: The name of the time synchronization client ('chronyc', 'systemd-timesyncd') or 'UNKNOWN' if none is found.
+    """
+    if checkCommandAvailability('chronyc'):
+        return 'chronyc'
+    elif checkCommandAvailability('timedatectl'):
+        return 'systemd-timesyncd'
+    else:
+        return 'UNKNOWN'
+
+
 def timedatectlStatus():
     tdctl_stdout            = subprocess.Popen(['timedatectl', 'status'], stdout=subprocess.PIPE)
     tdctl_out               = {'service': {}, 'perfd': {}}
@@ -288,8 +336,8 @@ def resultToIcinga(svc_result):
 
 def parseArgs():
     argParser = argparse.ArgumentParser(description='Check the chronyc or systemd-timesyncd sync status.')
-    argParser.add_argument('-d', '--daemon', dest='daemon', required=True, type=str, \
-                            choices=[ 'chronyc', 'systemd-timesyncd' ], \
+    argParser.add_argument('-d', '--daemon', dest='daemon', required=False, type=str, \
+                            choices=['chronyc', 'systemd-timesyncd'], \
                             help='Monitored daemon.')
     argParser.add_argument('-r', '--resource', dest='resource', type=str, default='leap_status', \
                             choices=[ 'leap_status', 'sources', 'falseticker' ], \
