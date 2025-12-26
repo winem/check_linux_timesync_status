@@ -2,26 +2,19 @@
 
 import argparse
 import csv
-import distro
 import io
 import os
 import shutil
 import subprocess
 import sys
 
-CLIENT_COMMAND = {
-    'chronyc': 'chronyc',
-    'systemd-timesyncd': 'timedatectl'
-}
-
-
-def main(args):
-    os_family                   = distro.id()
+def main(args, client_commands):
     invalid_input_result_prefix = 'TIMESYNC STATUS UNKNOWN'
 
     if args.daemon:
-        if not checkCommandAvailability(CLIENT_COMMAND['chronyc']):
-            print(f'{invalid_input_result_prefix} - chronyc command not found.')
+        client_command = client_commands[args.daemon]
+        if not checkCommandAvailability(client_command):
+            print(f'{invalid_input_result_prefix} - {client_command} command not found.')
             sys.exit(3)
         daemon = args.daemon
     else:
@@ -37,7 +30,7 @@ def main(args):
 
             resultToIcinga(chronyc_monitoring)
 
-        elif args.resource == 'sources':
+        elif args.resource== 'sources':
             sources_monitoring = chronycSources('sources')
 
             resultToIcinga(sources_monitoring)
@@ -79,7 +72,6 @@ def chronycSources(chk_resource):
     # TODO: Support thresholds from the cmd line
 
     chronyc_status              = chronycMonitor('sources')
-    chronyc_sources             = len(chronyc_status)
     sources_out                 = {}
     sources_out['service']      = {}
     sources_out['perfd']        = {}
@@ -100,7 +92,6 @@ def chronycSources(chk_resource):
 
     for s in chronyc_status:
         s_status    = s[1]
-        s_host      = s[2]
 
         sources_configured += 1
 
@@ -118,7 +109,6 @@ def chronycSources(chk_resource):
                 c_sources_unreliable += 1
 
     if chk_resource == 'falseticker':
-
         if falseticker_cnt == 0:
             falseticker_status  = 0
             falseticker_msg     = 'No falseticker found'
@@ -131,16 +121,11 @@ def chronycSources(chk_resource):
         r_msg       = falseticker_msg
 
     elif chk_resource == 'sources':
-
-        r_name = 'NTP Sources Status'
-
         if c_sources_unavailable <= sources_configured // 2:
-
             if c_sources_synchronized > 0:
                 c_sources_status  = 0
                 c_sources_msg     = '{} out of {} sources are available; {} synchronized source'.format(c_sources_available, sources_configured, c_sources_synchronized)
         elif c_sources_unavailable <= sources_configured - 1:
-
             if c_sources_synchronized > 0:
                 c_sources_status  = 1
                 c_sources_msg     = '{} out of {} sources are available; {} synchronized source'.format(c_sources_available, sources_configured, c_sources_synchronized)
@@ -189,7 +174,6 @@ def chronycTracking():
     chronyc_status          = chronycMonitor('tracking')
     leap_status             = 0 if chronyc_status[0][13] == 'Normal' else 1
     system_time             = chronyc_status[0][4]
-    root_delay              = chronyc_status[0][10]
     root_dispersion         = chronyc_status[0][11]
     max_estimated_error     = float(system_time) + float(root_dispersion) / 2 + float(root_dispersion)
     tracking_out            = {'service': {}, 'perfd': {}}
@@ -278,8 +262,9 @@ def resultToIcinga(svc_result):
     elif chk_state == 3:
         chk_state_str  = 'UNKNOWN'
     else:
-        chk_state      = 2
-        chk_state_str  = 'Invalid check result'
+        chk_msg        = 'Invalid check state ({chk_state}) received.'
+        chk_state      = 3
+        chk_state_str  = 'UNKNOWN'
 
     if 'perfd' in svc_result:
 
@@ -334,20 +319,31 @@ def resultToIcinga(svc_result):
     else:
         sys.exit(3)
 
-def parseArgs():
+def parseArgs(client_commands, client_resources):
     argParser = argparse.ArgumentParser(description='Check the chronyc or systemd-timesyncd sync status.')
     argParser.add_argument('-d', '--daemon', dest='daemon', required=False, type=str, \
                             choices=['chronyc', 'systemd-timesyncd'], \
                             help='Monitored daemon.')
     argParser.add_argument('-r', '--resource', dest='resource', type=str, default='leap_status', \
                             choices=[ 'leap_status', 'sources', 'falseticker' ], \
-                            help='Checked resource. \
-                                  Supported options for chronyc: leap_status, sources, falseticker. \
-                                  Supported options for systemd-timesyncd: leap_status')
+                            help=f'Checked resource. \
+                                  Supported options for chronyc: {client_resources['chronyc']}. \
+                                  Supported options for systemd-timesyncd: {client_resources['systemd-timesyncd']}.')
 
     return argParser.parse_args()
 
 
 if __name__ == "__main__":
-    args = parseArgs()
-    main(args)
+    client_commands = {
+        'chronyc': 'chronyc',
+        'systemd-timesyncd': 'timedatectl'
+    }
+
+    client_resources = {
+        'chronyc': [ 'leap_status', 'sources', 'falseticker' ],
+        'systemd-timesyncd': [ 'leap_status' ]
+    }
+
+    args = parseArgs(client_commands, client_resources)
+
+    main(args, client_commands)
