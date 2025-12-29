@@ -8,8 +8,9 @@ import shutil
 import subprocess
 import sys
 
-def main(args, client_commands):
+def main(args, client_commands, client_resources):
     invalid_input_result_prefix = 'TIMESYNC STATUS UNKNOWN'
+    invalid_resource_provided   = False
 
     if args.daemon:
         client_command = client_commands[args.daemon]
@@ -40,6 +41,9 @@ def main(args, client_commands):
 
             resultToIcinga(sources_monitoring)
 
+        else:
+            invalid_resource_provided = True
+
     elif daemon == 'systemd-timesyncd':
         if args.resource == 'leap_status':
             timesyncd_monitoring = timedatectlStatus()
@@ -47,11 +51,14 @@ def main(args, client_commands):
             resultToIcinga(timesyncd_monitoring)
 
         else:
-            print(f'{invalid_input_result_prefix} - Unsupported systemd-timesyncd resource. Supported resources: leap_status')
-            sys.exit(3)
+            invalid_resource_provided = True
 
     elif daemon == 'UNKNOWN':
         print(f'{invalid_input_result_prefix} - Unable to detect time synchronization daemon. Please specify it via the --daemon option.')
+        sys.exit(3)
+
+    if invalid_resource_provided:
+        print(f'{invalid_input_result_prefix} - Unsupported systemd-timesyncd resource. Supported resources: {client_resources[daemon]}')
         sys.exit(3)
 
 
@@ -71,44 +78,33 @@ def chronycMonitor(chronyc_command):
 def chronycSources(chk_resource):
     # TODO: Support thresholds from the cmd line
 
-    chronyc_status              = chronycMonitor('sources')
-    sources_out                 = {}
-    sources_out['service']      = {}
-    sources_out['perfd']        = {}
+    chronyc_status     = chronycMonitor('sources')
+    sources_configured = 0
+    sources_out        = {'service': {}, 'perfd': {}}
+
+    # use sane defaults for variables that will be overridden with more precise details later
+    r_name   = 'NTP Status'
+    r_status = 3
+    r_msg    = f'Chronyc resource ({chk_resource}) not implemented. See {sys.argv[0]} for the list of supported resources.'
+
+    c_sources_available    = 0
+    c_sources_synchronized = 0
+    c_sources_unavailable  = 0
+    c_sources_unreliable   = 0
+    falseticker_cnt        = 0
 
     if chk_resource == 'falseticker':
-        falseticker_msg             = 'All of the configured sources are falseticker'
-        falseticker_status          = 2
-        falseticker_cnt             = 0
-    elif chk_resource == 'sources':
-        c_sources_msg               = 'No synced source.'
-        c_sources_status            = 2
-        c_sources_available         = 0
-        c_sources_unavailable       = 0
-        c_sources_synchronized      = 0
-        c_sources_unreliable        = 0
+        falseticker_msg    = 'All of the configured sources are falseticker'
+        falseticker_status = 2
 
-    sources_configured = 0
+        for s in chronyc_status:
+            s_status    = s[1]
 
-    for s in chronyc_status:
-        s_status    = s[1]
+            sources_configured += 1
 
-        sources_configured += 1
-
-        if chk_resource == 'falseticker':
             if s_status in ('x'):
                 falseticker_cnt += 1
-        elif chk_resource == 'sources':
-            if s_status in ('+', '-', '*'):
-                c_sources_available += 1
-                if s_status == '*':
-                    c_sources_synchronized += 1
-            elif s_status in ('?'):
-                c_sources_unavailable += 1
-            elif s_status in ('~'):
-                c_sources_unreliable += 1
 
-    if chk_resource == 'falseticker':
         if falseticker_cnt == 0:
             falseticker_status  = 0
             falseticker_msg     = 'No falseticker found'
@@ -120,7 +116,25 @@ def chronycSources(chk_resource):
         r_status    = falseticker_status
         r_msg       = falseticker_msg
 
+
     elif chk_resource == 'sources':
+        c_sources_msg               = 'No synced source.'
+        c_sources_status            = 2
+
+        for s in chronyc_status:
+            s_status    = s[1]
+
+            sources_configured += 1
+
+            if s_status in ('+', '-', '*'):
+                c_sources_available += 1
+                if s_status == '*':
+                    c_sources_synchronized += 1
+            elif s_status in ('?'):
+                c_sources_unavailable += 1
+            elif s_status in ('~'):
+                c_sources_unreliable += 1
+
         if c_sources_unavailable <= sources_configured // 2:
             if c_sources_synchronized > 0:
                 c_sources_status  = 0
@@ -319,13 +333,14 @@ def resultToIcinga(svc_result):
     else:
         sys.exit(3)
 
-def parseArgs(client_commands, client_resources):
+def parseArgs(client_resources):
+    unique_client_resources = {r for resources in client_resources.values() for r in resources}
     argParser = argparse.ArgumentParser(description='Check the chronyc or systemd-timesyncd sync status.')
-    argParser.add_argument('-d', '--daemon', dest='daemon', required=False, type=str, \
-                            choices=['chronyc', 'systemd-timesyncd'], \
+    argParser.add_argument('-d', '--daemon', dest='daemon', required=False, type=str,
+                            choices=client_resources.keys(),
                             help='Monitored daemon.')
-    argParser.add_argument('-r', '--resource', dest='resource', type=str, default='leap_status', \
-                            choices=[ 'leap_status', 'sources', 'falseticker' ], \
+    argParser.add_argument('-r', '--resource', dest='resource', type=str, default='leap_status',
+                            choices=list(unique_client_resources),
                             help=f'Checked resource. \
                                   Supported options for chronyc: {client_resources['chronyc']}. \
                                   Supported options for systemd-timesyncd: {client_resources['systemd-timesyncd']}.')
@@ -344,6 +359,6 @@ if __name__ == "__main__":
         'systemd-timesyncd': [ 'leap_status' ]
     }
 
-    args = parseArgs(client_commands, client_resources)
+    args = parseArgs(client_resources)
 
-    main(args, client_commands)
+    main(args, client_commands, client_resources)
