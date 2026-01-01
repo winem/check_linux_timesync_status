@@ -8,7 +8,11 @@ import shutil
 import subprocess
 import sys
 
-def main(args, client_commands, client_resources):
+from typing import Any
+
+def main(args: argparse.Namespace,
+         client_commands: dict[str, str],
+         client_resources: dict[str, list[str]]):
     invalid_input_result_prefix = 'TIMESYNC STATUS UNKNOWN'
     invalid_resource_provided   = False
 
@@ -62,12 +66,12 @@ def main(args, client_commands, client_resources):
         sys.exit(3)
 
 
-def checkCommandAvailability(command):
+def checkCommandAvailability(command: str) -> bool:
     """Return True if `command` is available on the system PATH, otherwise False."""
     return shutil.which(command) is not None
 
 
-def chronycMonitor(chronyc_command):
+def chronycMonitor(chronyc_command: str) -> list[list[str]]:
     chronyc_stdout  = subprocess.Popen([ 'chronyc', '-c', chronyc_command ], stdout=subprocess.PIPE)
     chronyc_o       = io.TextIOWrapper(chronyc_stdout.stdout, newline=os.linesep)
     chronyc_o_csv   = csv.reader((line for line in chronyc_o), delimiter=',')
@@ -75,7 +79,7 @@ def chronycMonitor(chronyc_command):
     return list(chronyc_o_csv)
 
 
-def chronycSources(chk_resource):
+def chronycSources(chk_resource: str) -> dict[str, Any]:
     # TODO: Support thresholds from the cmd line
 
     chronyc_status     = chronycMonitor('sources')
@@ -184,7 +188,7 @@ def chronycSources(chk_resource):
     return sources_out
 
 
-def chronycTracking():
+def chronycTracking() -> dict[str, Any]:
     chronyc_status          = chronycMonitor('tracking')
     leap_status             = 0 if chronyc_status[0][13] == 'Normal' else 1
     system_time             = chronyc_status[0][4]
@@ -213,7 +217,7 @@ def chronycTracking():
     return tracking_out
 
 
-def detectTimesyncDaemon():
+def detectTimesyncDaemon() -> str:
     """
     Detect which time synchronization client based on available commands.
 
@@ -232,7 +236,7 @@ def detectTimesyncDaemon():
         return 'UNKNOWN'
 
 
-def timedatectlStatus():
+def timedatectlStatus() -> dict[str, Any]:
     tdctl_stdout            = subprocess.Popen(['timedatectl', 'status'], stdout=subprocess.PIPE)
     tdctl_out               = {'service': {}, 'perfd': {}}
     tdctl_msg               = 'System clock is not in sync.'
@@ -261,7 +265,7 @@ def timedatectlStatus():
     return tdctl_out
 
 
-def resultToIcinga(svc_result):
+def resultToIcinga(svc_result: dict[str, Any]) -> None:
     svc_dict    = svc_result['service']
     chk_name    = svc_dict['name']
     chk_state   = svc_dict['state']
@@ -333,7 +337,7 @@ def resultToIcinga(svc_result):
     else:
         sys.exit(3)
 
-def parseArgs(client_resources):
+def parseArgs(client_resources: dict[str, list[str]]) -> argparse.Namespace:
     unique_client_resources = {r for resources in client_resources.values() for r in resources}
     argParser = argparse.ArgumentParser(description='Check the chronyc or systemd-timesyncd sync status.')
     argParser.add_argument('-d', '--daemon', dest='daemon', required=False, type=str,
