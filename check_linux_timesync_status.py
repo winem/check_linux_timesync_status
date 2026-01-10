@@ -345,9 +345,9 @@ def parseArgs(client_resources: dict[str, list[str]]) -> argparse.Namespace:
                             help='Monitored daemon.')
     argParser.add_argument('-r', '--resource', dest='resource', type=str, default='leap_status',
                             choices=list(unique_client_resources),
-                            help=f'Checked resource. \
+                            help=f"Checked resource. \
                                   Supported options for chronyc: {client_resources['chronyc']}. \
-                                  Supported options for systemd-timesyncd: {client_resources['systemd-timesyncd']}.')
+                                  Supported options for systemd-timesyncd: {client_resources['systemd-timesyncd']}.")
 
     return argParser.parse_args()
 

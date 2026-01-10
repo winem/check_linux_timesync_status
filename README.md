@@ -8,7 +8,7 @@ These are the requirements to run this plugin:
         - chronyc
           - systemd-timesyncd
   - Python interpreter:
-    - Python3.10 or newer (tested up to 3.13)
+    - Python3.11 or newer (tested up to 3.13)
   - Python packages:
     - `distro`
 
