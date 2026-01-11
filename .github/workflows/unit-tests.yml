@@ -1,0 +1,46 @@
+name: Unit Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-ubuntu:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }} (Ubuntu)
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run tests (Ubuntu)
+        run: |
+          python -m unittest discover -s . -p 'test_*.py'
+
+  test-fedora:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    container:
+      image: fedora:latest
+
+    steps:
+      - name: Install dependencies
+        run: |
+          dnf install -y python${{ matrix.python-version }} git
+
+      - uses: actions/checkout@v4
+
+      - name: Run tests (Fedora)
+        run: |
+          python${{ matrix.python-version }} -m unittest discover -s . -p 'test_*.py'
